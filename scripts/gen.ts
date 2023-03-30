@@ -1,4 +1,6 @@
-const rs = await(await fetch('https://raw.githubusercontent.com/unicode-rs/unicode-width/master/src/tables.rs')).text()
+import { assertEquals } from 'https://deno.land/std@0.180.0/testing/asserts.ts'
+
+const rs = await (await fetch('https://raw.githubusercontent.com/unicode-rs/unicode-width/master/src/tables.rs')).text()
 
 function runLengthEncode(arr: number[]) {
 	const data: number[] = []
@@ -27,8 +29,11 @@ const data = {
 	tables: [] as ReturnType<typeof runLengthEncode>[],
 }
 
-for (const x of [...rs.matchAll(/static TABLES_(\d): \[u8; \d+\] = (\[[^\]]+\]);/g)]) {
+for (const x of [...rs.matchAll(/static TABLES_(\d): \[u8; \d+\] = (\[\s*(?:\d\w*\s*(?:,\s*)?)+\s*\])\s*;/g)]) {
 	eval(`data.tables[${x[1]}] = ${runLengthEncode.name}(${x[2]})`)
 }
+
+assertEquals(data.UNICODE_VERSION.length, 3)
+assertEquals(data.tables.length, 3)
 
 await Deno.writeTextFile('./data.json', JSON.stringify(data))

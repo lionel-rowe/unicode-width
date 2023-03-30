@@ -12,18 +12,10 @@ const runLengthDecode = ({ d, r }: { d: string; r: string }) => {
 	return Uint8Array.from([...out].map((x) => x.codePointAt(0)!))
 }
 
-const tableCache = new Map<string, Uint8Array>()
-const tables = new Proxy(data.tables, {
-	get(t, _k) {
-		const k = _k as `${number}`
-		if (tableCache.has(k)) return tableCache.get(k)
-		const v = runLengthDecode(t[k])
-		tableCache.set(k, v)
-		return v
-	},
-}) as unknown as Uint8Array[]
-
+let tables: Uint8Array[] | null = null
 function lookupWidth(cp: number, isCjk: boolean) {
+	if (!tables) tables = data.tables.map(runLengthDecode)
+
 	const t1Offset = tables[0][(cp >> 13) & 0xff]
 	const t2Offset = tables[1][128 * t1Offset + ((cp >> 6) & 0x7f)]
 	const packedWidths = tables[2][16 * t2Offset + ((cp >> 2) & 0xf)]
@@ -53,7 +45,7 @@ const charCache = new Map<string, number | null>()
 const cjkCache = new Map<string, number | null>()
 function width(ch: string, isCjk: boolean) {
 	const cache = isCjk ? charCache : cjkCache
-	if (cache.has(ch)) return cache.get(ch)
+	if (cache.has(ch)) return cache.get(ch)!
 	const v = _width(ch, isCjk)
 	cache.set(ch, v)
 	return v
