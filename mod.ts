@@ -12,13 +12,13 @@ const runLengthDecode = ({ d, r }: { d: string; r: string }) => {
 	return Uint8Array.from([...out].map((x) => x.codePointAt(0)!))
 }
 
-const cache = new Map<string, Uint8Array>()
+const tableCache = new Map<string, Uint8Array>()
 const tables = new Proxy(data.tables, {
 	get(t, _k) {
 		const k = _k as `${number}`
-		if (cache.has(k)) return cache.get(k)
+		if (tableCache.has(k)) return tableCache.get(k)
 		const v = runLengthDecode(t[k])
-		cache.set(k, v)
+		tableCache.set(k, v)
 		return v
 	},
 }) as unknown as Uint8Array[]
@@ -37,8 +37,8 @@ function lookupWidth(cp: number, isCjk: boolean) {
 	}
 }
 
-function width(char: string, isCjk: boolean) {
-	const cp = char.codePointAt(0)!
+function _width(ch: string, isCjk: boolean) {
+	const cp = ch.codePointAt(0)!
 
 	if (cp < 0x7f) {
 		return cp >= 0x20 ? 1 : cp === 0 ? 0 : null
@@ -49,18 +49,22 @@ function width(char: string, isCjk: boolean) {
 	}
 }
 
+const charCache = new Map<string, number | null>()
+const cjkCache = new Map<string, number | null>()
+function width(ch: string, isCjk: boolean) {
+	const cache = isCjk ? charCache : cjkCache
+	if (cache.has(ch)) return cache.get(ch)
+	const v = _width(ch, isCjk)
+	cache.set(ch, v)
+	return v
+}
+
 export function stringWidth(str: string) {
 	return unicodeWidth(stripAnsi(str))
 }
 
 export function unicodeWidth(str: string, isCjk = false) {
-	let total = 0
-
-	for (const w of [...str].map((ch) => width(ch, isCjk))) {
-		total += w ?? 0
-	}
-
-	return total
+	return [...str].map((ch) => width(ch, isCjk) ?? 0).reduce((a, b) => a + b, 0)
 }
 
 export function stripAnsi(str: string) {
